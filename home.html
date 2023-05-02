@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>three.js vr - panorama with depth</title>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <link type="text/css" rel="stylesheet" href="main.css" />
+  </head>
+  <body>
+    <div id="container"></div>
+    <script
+      async
+      src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"
+    ></script>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as THREE from "three";
+
+      import { VRButton } from "three/addons/webxr/VRButton.js";
+
+      import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
+
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+      import { XRControllerModelFactory } from "three/addons/webxr/XRControllerModelFactory.js";
+
+      // Initialize variables
+      let camera, scene, renderer, controls, controller1, controller2;
+      let currentPhoto = 1;
+      const photos = [
+        "models/kirjasto1.jpg",
+        "models/kirjasto2.jpg",
+        "models/kirjasto3.jpg",
+        "models/kirjasto4.jpg",
+        "models/kirjasto5.jpg",
+        "models/kirjasto1.jpg",
+      ];
+      let baseReferenceSpace;
+
+      init();
+      animate();
+
+      function init() {
+        // Set up scene
+        scene = new THREE.Scene();
+
+        // Set up camera
+        camera = new THREE.PerspectiveCamera(
+          75,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          1000
+        );
+        scene.add(camera);
+
+        // Set up renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.xr.enabled = true;
+        document.body.appendChild(renderer.domElement);
+        document.body.appendChild(VRButton.createButton(renderer));
+        renderer.xr.enabled = true;
+
+        initVR();
+
+        function initVR() {
+          document.body.appendChild(VRButton.createButton(renderer));
+          renderer.xr.enabled = true;
+          renderer.xr.addEventListener(
+            "sessionstart",
+            () => (baseReferenceSpace = renderer.xr.getReferenceSpace())
+          );
+
+          // controllers
+
+          controller1 = renderer.xr.getController(0);
+          controller1.addEventListener("selectstart", loadPhoto);
+          controller1.addEventListener("squeezestart", loadPhoto);
+          scene.add(controller1);
+
+          controller2 = renderer.xr.getController(1);
+          controller2.addEventListener("selectstart", loadPhoto);
+          controller2.addEventListener("squeezestart", loadPhoto);
+          scene.add(controller2);
+
+          controller1.addEventListener("selectstart", () => {
+            currentPhoto = (currentPhoto + 1) % photos.length;
+            loadPhoto(currentPhoto);
+          });
+
+          controller2.addEventListener("selectstart", () => {
+            currentPhoto = (currentPhoto + 1) % photos.length;
+            loadPhoto(currentPhoto);
+          });
+
+          renderer.xr.addEventListener("selectstart", () => {
+            currentPhoto = (currentPhoto + 1) % photos.length;
+            loadPhoto(currentPhoto);
+          });
+
+          const controllerModelFactory = new XRControllerModelFactory();
+
+          // Set up controls
+          controls = new XRControllerModelFactory().createControllerModel(
+            renderer.xr.getController(0)
+          );
+        }
+
+        scene.add(controls);
+
+        // Load first photo
+        loadPhoto(photos[currentPhoto]);
+      }
+
+      function loadPhoto(index) {
+        const photo = photos[index];
+
+        // Remove previous photo
+        scene.remove(scene.children.find((obj) => obj.name === "photo"));
+
+        // Load new photo
+        new THREE.TextureLoader().load(photo, function (texture) {
+          const geometry = new THREE.SphereGeometry(500, 60, 40);
+          const material = new THREE.MeshBasicMaterial({
+            map: texture,
+            side: THREE.BackSide,
+          });
+          const sphere = new THREE.Mesh(geometry, material);
+          sphere.name = "photo";
+          scene.add(sphere);
+        });
+      }
+
+      function animate() {
+        renderer.setAnimationLoop(() => {
+          renderer.render(scene, camera);
+        });
+      }
+    </script>
+  </body>
+</html>

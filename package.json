@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "three": "^0.151.3",
+    "three-pmrem": "^1.0.0"
+  }
+}
