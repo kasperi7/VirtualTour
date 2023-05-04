@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>three.js xr - dragging</title>
+    <title>testi</title>
     <meta charset="utf-8" />
     <meta
       name="viewport"
@@ -30,22 +30,17 @@
       import { OrbitControls } from "three/addons/controls/OrbitControls.js";
       import { XRButton } from "three/addons/webxr/XRButton.js";
       import { XRControllerModelFactory } from "three/addons/webxr/XRControllerModelFactory.js";
-
-      THREE.ColorManagement.enabled = false; // TODO: Consider enabling color management.
-
       let camera, scene, renderer;
       let controller1, controller2;
       let controllerGrip1, controllerGrip2;
 
       let raycaster;
-      let currentPhoto = 1;
+      let currentPhoto = 2;
       const photos = [
         "models/kirjasto1.jpg",
         "models/kirjasto2.jpg",
         "models/kirjasto3.jpg",
         "models/kirjasto4.jpg",
-        "models/kirjasto5.jpg",
-        "models/kirjasto1.jpg",
       ];
       let baseReferenceSpace;
 
@@ -91,16 +86,33 @@
         scene.add(group);
 
         // testisphere
-        const geometria = new THREE.SphereGeometry(0.5, 32, 32);
+        const geometria = new THREE.SphereGeometry(4, 300, 300);
         const material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-        const sphere = new THREE.Mesh(geometria, material);
-        sphere.position.set(0, 2, -4);
-        group.add(sphere);
+        const sphere1 = new THREE.Mesh(geometria, material);
+        sphere1.position.set(0, 2, -4);
+        sphere1.name = "sphere1";
+        if ((currentPhoto = 1)) {
+          sphere1.position.set(30, 1, 90);
+        } else if ((currentPhoto = 2)) {
+          sphere1.position.set(0, 1, 45);
+        }
+        group.add(sphere1);
+
+        // sphere2
+        const geometria2 = new THREE.SphereGeometry(4, 300, 300);
+        const material2 = new THREE.MeshStandardMaterial({ color: 0x099999 });
+        const sphere2 = new THREE.Mesh(geometria2, material2);
+        sphere2.position.set(-30, 1, 90);
+        sphere2.name = "sphere2";
+        group.add(sphere2);
 
         //
 
         renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.outputColorSpace = THREE.SRGBColorSpace; // optional with post-processing
+        THREE.ColorManagement.enabled = true;
         renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.outputColorSpace;
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
         container.appendChild(renderer.domElement);
@@ -124,23 +136,18 @@
         controller2.addEventListener("selectend", onSelectEnd);
         scene.add(controller2);
 
-        controller1.addEventListener("selectstart", () => {
-          currentPhoto = (currentPhoto + 1) % photos.length;
-          loadPhoto(currentPhoto);
-        });
-
-        controller2.addEventListener("selectstart", () => {
-          currentPhoto = (photo + 1) % photos.length;
-          loadPhoto(currentPhoto);
-        });
-
-        renderer.xr.addEventListener("selectend", () => {
-          currentPhoto = currentPhoto + 1;
-          loadPhoto(photos);
-        });
-
         const controllerModelFactory = new XRControllerModelFactory();
+        controllerGrip1 = renderer.xr.getControllerGrip(0);
+        controllerGrip1.add(
+          controllerModelFactory.createControllerModel(controllerGrip1)
+        );
+        scene.add(controllerGrip1);
 
+        controllerGrip2 = renderer.xr.getControllerGrip(1);
+        controllerGrip2.add(
+          controllerModelFactory.createControllerModel(controllerGrip2)
+        );
+        scene.add(controllerGrip2);
         // Set up controls
         controls = new XRControllerModelFactory().createControllerModel(
           renderer.xr.getController(0)
@@ -166,19 +173,6 @@
         //
 
         window.addEventListener("resize", onWindowResize);
-
-        function loadPhoto(photos) {
-          new THREE.TextureLoader().load(photos, function (texture) {
-            const geometry = new THREE.SphereGeometry(500, 60, 40);
-            const material = new THREE.MeshBasicMaterial({
-              map: texture,
-              side: THREE.BackSide,
-            });
-            const sphere = new THREE.Mesh(geometry, material);
-            sphere.name = "photo";
-            scene.add(sphere);
-          });
-        }
       }
 
       function onWindowResize() {
@@ -187,6 +181,9 @@
 
         renderer.setSize(window.innerWidth, window.innerHeight);
       }
+
+      let isSelectingSphere1 = false;
+      let isSelectingSphere2 = false;
 
       function onSelectStart(event) {
         const controller = event.target;
@@ -198,6 +195,13 @@
 
           const object = intersection.object;
           object.material.emissive.b = 1;
+          if (object.name === "sphere1") {
+            isSelectingSphere1 = true;
+            isSelectingSphere2 = false;
+          } else if (object.name === "sphere2") {
+            isSelectingSphere1 = false;
+            isSelectingSphere2 = true;
+          }
 
           controller.userData.selected = object;
         }
@@ -212,10 +216,32 @@
           const object = controller.userData.selected;
           object.material.emissive.b = 0;
 
+          if (isSelectingSphere1) {
+            currentPhoto = (currentPhoto + 1) % photos.length;
+          } else if (isSelectingSphere2) {
+            currentPhoto = (currentPhoto - 1 + photos.length) % photos.length;
+          }
+
+          loadPhoto(photos[currentPhoto]);
           controller.userData.selected = undefined;
         }
+        isSelectingSphere1 = false;
+        isSelectingSphere2 = false;
       }
+      function loadPhoto(photos) {
+        new THREE.TextureLoader().load(photos, function (texture) {
+          const geometry = new THREE.SphereGeometry(500, 60, 40);
+          const material = new THREE.MeshBasicMaterial({
+            map: texture,
+            side: THREE.DoubleSide,
+          });
+          const sphere = new THREE.Mesh(geometry, material);
+          sphere.name = "photo";
+          sphere.scale.x = -1;
 
+          scene.add(sphere);
+        });
+      }
       function getIntersections(controller) {
         controller.updateMatrixWorld();
 
